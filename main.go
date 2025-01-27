@@ -65,7 +65,7 @@ func createPatientRecord(c *gin.Context) {
     }
 
     // Define la consulta SQL
-    query := `INSERT INTO medical_records (description, id_patient, id_user) VALUES ($1, $2, $3)`
+    query := `INSERT INTO medical_records (description, id_patient, id_user) VALUES ($1, $2, $3) RETURNING id;`
 
     args := []interface{}{
         createRequest["description"],
@@ -124,6 +124,31 @@ func createPatientRecord(c *gin.Context) {
         return
     }
 
-    // Respond with a success message
-    c.JSON(http.StatusOK, gin.H{"message": "Registro creado exitosamente"})
+    // Extraer el ID del registro creado usando la estructura correcta
+    data, ok := queryResponse["data"].([]interface{})
+    if !ok || len(data) == 0 {
+        log.Printf("Error: no se recibió el ID del registro creado")
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "No se pudo obtener el ID del registro creado"})
+        return
+    }
+
+    firstRow, ok := data[0].(map[string]interface{})
+    if !ok {
+        log.Printf("Error: formato de respuesta inválido")
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Formato de respuesta inválido"})
+        return
+    }
+
+    id, ok := firstRow["id"]
+    if !ok {
+        log.Printf("Error: ID no encontrado en la respuesta")
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "ID no encontrado en la respuesta"})
+        return
+    }
+
+    // Respond with the created record ID
+    c.JSON(http.StatusOK, gin.H{
+        "message": "Registro creado exitosamente",
+        "id": id,
+    })
 }
